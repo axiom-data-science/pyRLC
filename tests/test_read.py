@@ -1,5 +1,8 @@
-import pyRLC
 import numpy as np
+from scipy.io import loadmat
+
+import pyRLC
+
 
 
 TEST_FILE = 'tests/test.rec'
@@ -169,5 +172,25 @@ def test_interp_scandata():
         f.seek(8) 
         (rlc_file.scandata, rlc_file.Nscan, rlc_file.scan_i) = rlc_file.read_record_data_type4(f)
 
-        interp_scandata = rlc_file.interp_scandata(f) 
-        assert interp_scandata.sum().sum() == 27092281 
+    interp_scandata = rlc_file.interp_scandata() 
+    assert interp_scandata.sum().sum() == 27092281
+
+
+def test_reprojection():
+    rlc_file = pyRLC.RLCfile(TEST_FILE)
+
+    with open(TEST_FILE, 'rb') as f:
+        # Read header and save required info
+        f.seek(8) 
+        (rlc_file.scandata, rlc_file.Nscan, rlc_file.scan_i) = rlc_file.read_record_data_type4(f)
+
+    rlc_file.interp_scandata = rlc_file.interp_scandata()
+
+    # Read scan data array from MATLAB for test
+    rlc_file.scandata = loadmat('data/rdrimg.mat')['rdrimg']
+
+    rdrimg = rlc_file.project_to_circular_image()
+    assert rdrimg.sum().sum() == 10583680 
+
+    np.save('reproj.npy', rdrimg)
+

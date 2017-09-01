@@ -173,7 +173,7 @@ class RLCfile:
 
         return scanline
 
-    def interp_scandata(self, f):
+    def interp_scandata(self):
         """Interpolate and return scan data"""
         interp_scandata = np.zeros((self.NscanX, self.Nsamp))
        
@@ -185,6 +185,45 @@ class RLCfile:
         
         return interp_scandata
 
+
+    def project_to_circular_image(self):
+        """Project data to circular radar image."""
+        imgsz = (2*self.Nsamp) - 1
+        rdrimg = np.zeros((imgsz, imgsz)) - 1
+
+        # X & Y image coordinates
+        ix = np.tile(np.arange(imgsz), (imgsz, 1)) 
+        iy = ix.T
+
+        # X & Y coords
+        rx = ix - self.Nsamp
+        ry = iy - self.Nsamp
+
+        # rotdeg to 0 because the radar is aligned to north
+        rotdeg = 0
+
+        coord_range = np.sqrt(rx*rx + ry*ry)
+        az = np.arctan2(ry, rx) + rotdeg*np.pi/180.0
+        az = az + 2*np.pi*(az <= 0)
+
+        samp = np.round(coord_range) 
+        scan = np.round(self.NscanX*az/(2*np.pi))
+        scan = scan + self.NscanX*(scan <= 0) - 1
+
+        for x in range(imgsz):
+            for y in range(imgsz):
+                # scan and sample coords
+                sa = int(samp[y, x])
+
+                # for given x, y pixel
+                sc = int(scan[y, x]) 
+
+                if sa < self.Nsamp:
+                    rdrimg[y, x] = self.interp_scandata[sc, sa]
+
+        return rdrimg
+
+    
 def read_uint8(f):
     return np.frombuffer(f.read(1), np.uint8)[0]
 
