@@ -11,6 +11,7 @@ rlc File format (type 4):
 import os
 
 import numpy as np
+from scipy.interpolate import interp1d
 
 
 class RLCfile:
@@ -36,31 +37,36 @@ class RLCfile:
     def read_record_data_type4(self, f):
         """Read and return record data (RLC type 4)"""
         sweep_header = self.read_sweep_header(f)
+
+        # scandata(NscanX, Nsamp)
         # scandata - X dim - NscanX
-        self.samples_per_scan = sweep_header['scanlines_per_sweep_ext']
+        self.NscanX = sweep_header['scanlines_per_sweep_ext']
         # scandata - Y dim - Nsamp
-        self.samples_per_sweep = sweep_header['samples_per_scanline']
-        self.scandata = np.zeros((self.samples_per_scan,
-                                  self.samples_per_sweep))
+        self.Nsamp = sweep_header['samples_per_scanline']
+        self.scandata = np.zeros((self.NscanX,
+                                  self.Nsamp))
         # scanline numbers used for reprojection - scan_i
-        self.scanline_nums = np.zeros((self.samples_per_scan,))
+        self.scan_i = np.zeros((self.NscanX,))
 
         scan = 0
         fpos1 = f.tell()
-        while fpos1 <= self.file_size:
-            scan_header = self.read_scan_header(f)
+        while fpos1 < self.file_size:
+            try:
+                scan_header = self.read_scan_header(f)
+            except:
+                print('exception: {}, {}'.format(fpos1, self.file_size))
 
             if scan_header['utype'] == 0:
                 seg_info = self.read_extended_segment_info(f)
 
-                if (seg_info['number'] >= 0) & (seg_info['number'] <= self.samples_per_sweep):
+                if (seg_info['number'] >= 0) & (seg_info['number'] <= self.NscanX):
                     if scan_header['compressed']:
-                        self.scandata[scan, :] = self.read_compressed_scanline(f)
-                    else:
                         fpos0 = f.tell()
-                        self.scandata[scan, :] = np.frombuffer(f.read(self.samples_per_sweep), np.uint8)
+                        self.scandata[scan, :] = self.read_compressed_scanline(f)
                         fpos1 = f.tell()
-                    self.scanline_nums[scan] = seg_info['number']
+                    else:
+                        self.scandata[scan, :] = np.frombuffer(f.read(self.NscanX), np.uint8)
+                    self.scan_i[scan] = seg_info['number']
                     scan += 1
                 else:
                     # end of file
@@ -72,14 +78,14 @@ class RLCfile:
                 # At end of file
                 fpos1 = self.file_size + 1
 
-        Nscan = scan - 1
+        Nscan = scan
         scandata = self.scandata[:Nscan, :]
-        scan_i = self.scanline_nums[:Nscan]
+        scan_i = self.scan_i[:Nscan]
 
         return (scandata, Nscan, scan_i) 
 
     def read_sweep_header(self, f):
-        """Read and return individual sweep header"""
+        """Read and return individual sweep header, save Nscanx and Nsamp"""
         sweep_header = {}
         sweep_header['sample_rate'] = read_uint32(f)
         sweep_header['samples_per_scanline'] = read_uint32(f) 
@@ -146,26 +152,14 @@ class RLCfile:
 #            self.scanlines[scan] = 1
             fpos1 = f.tell()
 
-    def _read_compressed_scanline(self, f):
-        """Read run-length encoded scanline 
-        
-        Notes:
-        - Corresponds to Xenex/RTI's "RLC_New"
-        """
-        self.fpos1 = f.tell()
-        self.scandata[scan, :] = self.decompress_scanline(f)
-        self.scanlines[scan] = 1
-        self.fpos2 = f.tell()
-
     def read_compressed_scanline(self, f):
         """Decompress run-length compressed scanline"""
-        Nsamp = self.samples_per_sweep
-        scanline = np.zeros((self.samples_per_sweep,))
+        scanline = np.zeros((self.Nsamp,))
         fpos0 = f.tell()
         samprem = self.file_size - fpos0
         samp = 0 
 
-        while (samp < Nsamp) & (samp <= samprem):
+        while (samp < self.Nsamp) & (samp <= samprem):
             backscat = read_uint8(f)
             if backscat == 255:
                 repval = read_uint8(f) + 1
@@ -179,6 +173,17 @@ class RLCfile:
 
         return scanline
 
+    def interp_scandata(self, f):
+        """Interpolate and return scan data"""
+        interp_scandata = np.zeros((self.NscanX, self.Nsamp))
+       
+        # slow, but similar to MATLAB method
+        # - slight differences because MATLAB backfills, this forward fills 
+        for s in np.arange(0, self.Nsamp):
+            f = interp1d(self.scan_i, self.scandata[:, s], 'nearest', fill_value='extrapolate')
+            interp_scandata[:, s] = f(np.arange(self.NscanX))
+        
+        return interp_scandata
 
 def read_uint8(f):
     return np.frombuffer(f.read(1), np.uint8)[0]

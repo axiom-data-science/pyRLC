@@ -102,13 +102,21 @@ def test_read_compressed_scanline():
 
     with open(TEST_FILE, 'rb') as f:
         # Read header and save required info
-        # TODO: Pull this out of that method 
         f.seek(8) 
-        rlc_file.read_record_data_type4(f)
+
+        sweep_header = rlc_file.read_sweep_header(f)
+        # scandata(NscanX, Nsamp)
+        # scandata - X dim - NscanX
+        rlc_file.NscanX = sweep_header['scanlines_per_sweep_ext']
+        # scandata - Y dim - Nsamp
+        rlc_file.Nsamp = sweep_header['samples_per_scanline']
+        rlc_file.scandata = np.zeros((rlc_file.NscanX,
+                                      rlc_file.Nsamp))
+        # scanline numbers used for reprojection - scan_i
+        rlc_file.scanline_nums = np.zeros((rlc_file.NscanX,))
 
         # skip to my lou
         f.seek(290)
-
         scandata = rlc_file.read_compressed_scanline(f)
         assert scandata[0] == 5
         assert scandata[-1] == 0
@@ -121,7 +129,16 @@ def test_read_compressed_scanline2():
     with open(TEST_FILE, 'rb') as f:
         # Read header and save required info
         f.seek(8) 
-        rlc_file.read_record_data_type4(f)
+        sweep_header = rlc_file.read_sweep_header(f)
+        # scandata(NscanX, Nsamp)
+        # scandata - X dim - NscanX
+        rlc_file.NscanX = sweep_header['scanlines_per_sweep_ext']
+        # scandata - Y dim - Nsamp
+        rlc_file.Nsamp = sweep_header['samples_per_scanline']
+        rlc_file.scandata = np.zeros((rlc_file.NscanX,
+                                      rlc_file.Nsamp))
+        # scanline numbers used for reprojection - scan_i
+        rlc_file.scanline_nums = np.zeros((rlc_file.NscanX,))
 
         # skip to my lou
         f.seek(799)
@@ -139,8 +156,18 @@ def test_read_rec_data():
         # Read header and save required info
         f.seek(8) 
         (scandata, Nscan, scan_i) = rlc_file.read_record_data_type4(f)
-        import pdb; pdb.set_trace()
         assert Nscan == 2453
-        assert scan_i.sum() == 5045703
+        assert scan_i.sum() == 5043250
         assert scandata.sum().sum() == 16223096
 
+
+def test_interp_scandata():
+    rlc_file = pyRLC.RLCfile(TEST_FILE)
+
+    with open(TEST_FILE, 'rb') as f:
+        # Read header and save required info
+        f.seek(8) 
+        (rlc_file.scandata, rlc_file.Nscan, rlc_file.scan_i) = rlc_file.read_record_data_type4(f)
+
+        interp_scandata = rlc_file.interp_scandata(f) 
+        assert interp_scandata.sum().sum() == 27092281 
