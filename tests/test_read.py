@@ -1,17 +1,21 @@
+# Numbers for assert values derived from MATLAB implementation
+import os
 import numpy as np
+
 from scipy.io import loadmat
+from scipy.misc import imread
 
 import pyRLC
 
-
-
-TEST_FILE = 'tests/test.rec'
-
+RADAR_FILE = 'data/test.rec'
+MATLAB_FILE = 'data/interp_scandata.mat'
+TEST_IMAGE = 'data/test_image.png'
+REF_IMAGE = 'data/reference_image.png'
 
 def test_read_header():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
     
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         (filesig, rlctype, sparebytes) = rlc_file.read_header(f)
 
         # 4-byte signature (206 4 90 27)
@@ -30,9 +34,9 @@ def test_read_header():
 
 
 def test_read_sweep_header():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
 
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         # skip header 
         f.seek(8)
 
@@ -47,9 +51,9 @@ def test_read_sweep_header():
 
 
 def test_read_scan_header():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
 
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         # skip header and sweep header
         f.seek(40)
 
@@ -60,9 +64,9 @@ def test_read_scan_header():
 
 
 def test_read_NMEA_header():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
 
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         # skip header, sweep header, and scan head
         f.seek(41)
 
@@ -76,9 +80,9 @@ def test_read_NMEA_header():
 
 
 def test_read_scanhead2():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
 
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         # skip header, sweep header, scan head, NMEA header
         f.seek(281)
 
@@ -89,9 +93,9 @@ def test_read_scanhead2():
 
 
 def test_read_extended_segment_info():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
 
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         # skip
         f.seek(282)
 
@@ -101,9 +105,9 @@ def test_read_extended_segment_info():
 
 
 def test_read_compressed_scanline():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
 
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         # Read header and save required info
         f.seek(8) 
 
@@ -118,7 +122,7 @@ def test_read_compressed_scanline():
         # scanline numbers used for reprojection - scan_i
         rlc_file.scanline_nums = np.zeros((rlc_file.NscanX,))
 
-        # skip to my lou
+        # skip to correct section
         f.seek(290)
         scandata = rlc_file.read_compressed_scanline(f)
         assert scandata[0] == 5
@@ -127,9 +131,9 @@ def test_read_compressed_scanline():
 
 
 def test_read_compressed_scanline2():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
 
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         # Read header and save required info
         f.seek(8) 
         sweep_header = rlc_file.read_sweep_header(f)
@@ -143,7 +147,7 @@ def test_read_compressed_scanline2():
         # scanline numbers used for reprojection - scan_i
         rlc_file.scanline_nums = np.zeros((rlc_file.NscanX,))
 
-        # skip to my lou
+        # skip to correct section
         f.seek(799)
 
         scandata = rlc_file.read_compressed_scanline(f)
@@ -152,10 +156,10 @@ def test_read_compressed_scanline2():
         assert scandata.sum() == 7213 
 
 
-def test_read_rec_data():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+def test_read_record_data_type4():
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
 
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         # Read header and save required info
         f.seek(8) 
         (scandata, Nscan, scan_i) = rlc_file.read_record_data_type4(f)
@@ -165,32 +169,76 @@ def test_read_rec_data():
 
 
 def test_interp_scandata():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
 
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         # Read header and save required info
         f.seek(8) 
         (rlc_file.scandata, rlc_file.Nscan, rlc_file.scan_i) = rlc_file.read_record_data_type4(f)
 
-    interp_scandata = rlc_file.interp_scandata() 
+    interp_scandata = rlc_file.interp_scandata()
+    # NOTE:  MATLAB nearest neighbor algorithm pads differently than Numpy (Scipy) implementations
+    # The assertion here is for the Scipy version, in MATLAB the value is 27088914
     assert interp_scandata.sum().sum() == 27092281
 
-
 def test_reprojection():
-    rlc_file = pyRLC.RLCfile(TEST_FILE)
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
 
-    with open(TEST_FILE, 'rb') as f:
+    with open(RADAR_FILE, 'rb') as f:
         # Read header and save required info
-        f.seek(8) 
+        f.seek(8)
+        (rlc_file.scandata, rlc_file.Nscan, rlc_file.scan_i) = rlc_file.read_record_data_type4(f)
+
+    rlc_file.interp_scandata = rlc_file.interp_scandata()
+    rdrimg = rlc_file.project_to_circular_image()
+
+    # MATLAB value 10583729
+    # Python value 10583770
+    assert rdrimg.sum() == 10583770
+
+def test_reprojection_matlab():
+    """Test reproject with MATLAB interpolated values"""
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
+
+    with open(RADAR_FILE, 'rb') as f:
+        # Read header and save required info
+        f.seek(8)
         (rlc_file.scandata, rlc_file.Nscan, rlc_file.scan_i) = rlc_file.read_record_data_type4(f)
 
     rlc_file.interp_scandata = rlc_file.interp_scandata()
 
     # Read scan data array from MATLAB for test
-    rlc_file.scandata = loadmat('data/rdrimg.mat')['rdrimg']
-
+    matlab_scandata = loadmat(MATLAB_FILE)['scandata']
+    rlc_file.interp_scandata = matlab_scandata
     rdrimg = rlc_file.project_to_circular_image()
-    assert rdrimg.sum().sum() == 10583680 
 
-    np.save('reproj.npy', rdrimg)
+    # MATLAB value 10583729
+    # Python value 10583770
+    assert rdrimg.sum() == 10583729
 
+
+def test_radar_image():
+    rlc_file = pyRLC.RLCfile(RADAR_FILE)
+
+    with open(RADAR_FILE, 'rb') as f:
+        # Read header and save required info
+        f.seek(8)
+        (rlc_file.scandata, rlc_file.Nscan, rlc_file.scan_i) = rlc_file.read_record_data_type4(f)
+
+    rlc_file.interp_scandata = rlc_file.interp_scandata()
+
+    # Read scan data array from MATLAB for test
+    matlab_scandata = loadmat(MATLAB_FILE)['scandata']
+    rlc_file.interp_scandata = matlab_scandata
+    rlc_file.rdrimg = rlc_file.project_to_circular_image()
+    print(rlc_file.rdrimg.sum())
+
+    # Save image
+    if os.path.exists(TEST_IMAGE):
+        os.remove(TEST_IMAGE)
+    rlc_file.write_png(TEST_IMAGE)
+
+    # Compare imag
+    ref_image = imread(REF_IMAGE)
+    test_image = imread(TEST_IMAGE)
+    assert np.array_equal(ref_image, test_image)
