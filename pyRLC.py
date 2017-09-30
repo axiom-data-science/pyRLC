@@ -23,6 +23,8 @@ class RLCfile:
     def __init__(self, fpath):
         self.file_path = os.path.abspath(fpath) 
         self.file_size = os.path.getsize(self.file_path)
+        # file handle
+        self.file = None
 
         # Scan information read from header
         # rlc type
@@ -38,23 +40,30 @@ class RLCfile:
         # NMEA header
         self.NMEAhead = None
 
-#        with open(file_path, 'rb') as f:
-#            (filesig, rlctype, _) = read_header(f)
-        # logger
         self.logger = logging.getLogger()
 
-    def read_header(self, f):
+    # context manager
+    def __enter__(self):
+        self.file = open(self.file_path, 'rb')
+        return self
+
+    def __exit__(self, exx_type, exc_val, exc_tb):
+        if self.file:
+            self.file.close()
+
+
+    def read_header(self):
         """Read and return header data"""
-        filesig = np.frombuffer(f.read(4), np.uint8)
-        rlctype = np.frombuffer(f.read(1), np.uint8)
-        three_zeros = np.frombuffer(f.read(3), np.uint8)
+        filesig = np.frombuffer(self.file.read(4), np.uint8)
+        rlctype = np.frombuffer(self.file.read(1), np.uint8)
+        three_zeros = np.frombuffer(self.file.read(3), np.uint8)
 
         self.logger.info('Read header')
         return filesig, rlctype, three_zeros
 
-    def read_record_data_type4(self, f):
+    def read_record_data_type4(self):
         """Read and return record data (RLC type 4)"""
-        sweep_header = self.read_sweep_header(f)
+        sweep_header = self.read_sweep_header()
 
         # scandata(NscanX, Nsamp)
         # scandata - X dim - NscanX
@@ -69,24 +78,24 @@ class RLCfile:
         self.logger.debug('NscanX: {}, Nsamp: {}'.format(self.NscanX, self.Nsamp))
 
         scan = 0
-        fpos1 = f.tell()
+        fpos1 = self.file.tell()
         while fpos1 < self.file_size:
             try:
-                scan_header = self.read_scan_header(f)
+                scan_header = self.read_scan_header()
             except:
                 self.logger.exception('fpos1: {}, file_size: {}'.format(fpos1, self.file_size))
 
             if scan_header['utype'] == 0:
-                seg_info = self.read_extended_segment_info(f)
+                seg_info = self.read_extended_segment_info()
 
                 if (seg_info['number'] >= 0) & (seg_info['number'] <= self.NscanX):
                     if scan_header['compressed']:
-                        fpos0 = f.tell()
-                        self.scandata[scan, :] = self.read_compressed_scanline(f)
-                        fpos1 = f.tell()
+                        fpos0 = self.file.tell()
+                        self.scandata[scan, :] = self.read_compressed_scanline()
+                        fpos1 = self.file.tell()
                         self.logger.debug('{} bytes read'.format(fpos1-fpos0))
                     else:
-                        self.scandata[scan, :] = np.frombuffer(f.read(self.NscanX), np.uint8)
+                        self.scandata[scan, :] = np.frombuffer(self.file.read(self.NscanX), np.uint8)
                     self.scan_i[scan] = seg_info['number']
                     scan += 1
                 else:
@@ -94,7 +103,7 @@ class RLCfile:
                     fpos1 = self.file_size + 1
             elif scan_header['utype'] > 0:
                 # read NMEA header 
-                self.NMEAhead = self.read_NMEA_header(f)
+                self.NMEAhead = self.read_NMEA_header()
             else:
                 # At end of file
                 fpos1 = self.file_size + 1
@@ -105,20 +114,20 @@ class RLCfile:
 
         return scandata, Nscan, scan_i
 
-    def read_sweep_header(self, f):
+    def read_sweep_header(self):
         """Read and return individual sweep header, save Nscanx and Nsamp"""
         sweep_header = {}
-        sweep_header['sample_rate'] = read_uint32(f)
-        sweep_header['samples_per_scanline'] = read_uint32(f) 
-        sweep_header['scanlines_per_sweep'] = read_uint32(f) 
-        sweep_header['scanlines_per_sweep_ext'] = read_uint32(f) 
-        sweep_header['time_of_sweep_pc'] = read_uint32(f) 
-        sweep_header['time_of_sweep_vp'] = read_uint64(f) 
-        sweep_header['uspare'] = read_uint32(f) 
+        sweep_header['sample_rate'] = read_uint32(self.file)
+        sweep_header['samples_per_scanline'] = read_uint32(self.file)
+        sweep_header['scanlines_per_sweep'] = read_uint32(self.file)
+        sweep_header['scanlines_per_sweep_ext'] = read_uint32(self.file)
+        sweep_header['time_of_sweep_pc'] = read_uint32(self.file)
+        sweep_header['time_of_sweep_vp'] = read_uint64(self.file)
+        sweep_header['uspare'] = read_uint32(self.file)
 
         return sweep_header
 
-    def read_scan_header(self, f):
+    def read_scan_header(self):
         """Read header for individual scan
         
         Notes:
@@ -127,7 +136,7 @@ class RLCfile:
         - bit 8          : compressed (specifies if following is runlength encoded)
         
         """
-        scanhead = read_uint8(f) 
+        scanhead = read_uint8(self.file)
 
         if scanhead > 0:
             rsi = np.zeros((8,))
@@ -147,14 +156,14 @@ class RLCfile:
         
         return {'utype': utype, 'urange': urange, 'compressed': compressed}
 
-    def read_NMEA_header(self, f):
+    def read_NMEA_header(self):
         """Read and return NMEA header"""
-        return np.frombuffer(f.read(self.NMEA_SIZE), np.uint8, count=240)
+        return np.frombuffer(self.file.read(self.NMEA_SIZE), np.uint8, count=240)
 
-    def read_extended_segment_info(self, f):
+    def read_extended_segment_info(self):
         """Read extended segment info"""
-        number = read_uint32(f) 
-        time = read_uint32(f) 
+        number = read_uint32(self.file)
+        time = read_uint32(self.file)
 
         if type(number) is not np.uint32:
             number = -1
@@ -170,23 +179,23 @@ class RLCfile:
 #            self.scanlines[scan] = 1
 #        else:
 #            fpos0 = f.tell()
-#            self.scandata[scan, :] = self.decompress_scanline(f)
+#            self.scandata[scan, :] = self.decompress_scanline()
 # not used
 #            self.scanlines[scan] = 1
 #            fpos1 = f.tell()
 
-    def read_compressed_scanline(self, f):
+    def read_compressed_scanline(self):
         """Decompress run-length compressed scanline"""
         scanline = np.zeros((self.Nsamp,))
-        fpos0 = f.tell()
+        fpos0 = self.file.tell()
         samprem = self.file_size - fpos0
         samp = 0 
 
         while (samp < self.Nsamp) & (samp <= samprem):
-            backscat = read_uint8(f)
+            backscat = read_uint8(self.file)
             if backscat == 255:
-                repval = read_uint8(f) + 1
-                backscat = read_uint8(f)
+                repval = read_uint8(self.file) + 1
+                backscat = read_uint8(self.file)
 
                 scanline[samp:samp+repval] = backscat
                 samp += repval
