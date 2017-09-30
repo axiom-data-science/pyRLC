@@ -21,7 +21,8 @@ class RLCfile:
     NMEA_SIZE = 240
 
     def __init__(self, fpath):
-        self.file_path = os.path.abspath(fpath) 
+        self.file_path = os.path.abspath(fpath)
+        self.file_name = os.path.split(self.file_path)[-1]
         self.file_size = os.path.getsize(self.file_path)
         # file handle
         self.file = None
@@ -35,10 +36,13 @@ class RLCfile:
         self.NscanX = None
         # Y dimension in scandata
         self.Nsamp = None
-        # Scanline numbers used in reprojection
+        # Scanline numbers used in projection to circle for image creation
         self.scan_i = None
         # NMEA header
         self.NMEAhead = None
+
+        # interpolated scandata to square for circle image
+        self.interpolated_scandata = None
 
         self.logger = logging.getLogger()
 
@@ -206,7 +210,7 @@ class RLCfile:
     def project_to_circular_image(self):
         """Project data to circular projection"""
         imgsz = (2*self.Nsamp) - 1
-        rdrimg = np.zeros((imgsz, imgsz)) - 1
+        radar_image = np.zeros((imgsz, imgsz)) - 1
 
         # X & Y image coordinates
         ix = np.tile(np.arange(1, imgsz+1), (imgsz, 1))
@@ -239,17 +243,35 @@ class RLCfile:
                 sc = int(scan[y, x]) - 1
 
                 if sa < self.Nsamp:
-                    rdrimg[y, x] = self.interp_scandata[sc, sa]
+                    radar_image[y, x] = self.interpolated_scandata[sc, sa]
 
-        return rdrimg
+        return radar_image
 
-    def write_png(self, output_file):
+    def write_png(self,  output_file=None):
         """Write projected scandata to png"""
-        imsave(output_file, self.rdrimg, cmap='gray')
+        if not output_file:
+            # save to same dir as .rec file, just change to .png
+            output_file = os.path.join(os.path.splitext(self.file)[0], '.png')
+        imsave(output_file, self.radar_image, cmap='gray')
 
-    def do_this(self):
+    def rec_to_png(self, output_file=None):
         """Reads .rec file and saves .png representation"""
+        # Read file header and ensure it has correct signature
+        fs, self.rlctype, sparebytes = self.read_header()
+        if fs[0] != 206 or fs[1] != 4 or fs[2] != 90 or fs[3] != 27:
+            raise Exception('file signature in header is incorrect: {}'.format(str(f) for f in fs))
 
+        # Read data (assumes it is compressed type4)
+        self.scandata, self.Nscan, self.scan_i = self.read_record_data_type4()
+
+        # Interpolate to square
+        self.interpolated_scandata = self.interp_scandata()
+
+        # Reproject
+        self.radar_image = self.project_to_circular_image()
+
+        # Save image
+        self.write_png(output_file)
 
 def main():
     """Parse cli and iterate over input .rec files"""
@@ -268,7 +290,8 @@ def main():
         os.makedirs(out_dir)
 
     for f in in_files:
-        pass
+        with RLCfile(f) as rlc_file:
+            rlc_file.rec_to_png()
 
 
 def read_uint8(f):

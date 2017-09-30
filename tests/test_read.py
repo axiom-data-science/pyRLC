@@ -12,6 +12,7 @@ MATLAB_FILE = 'data/interp_scandata.mat'
 TEST_IMAGE = 'data/test_image.png'
 REF_IMAGE = 'data/reference_image.png'
 
+
 def test_read_header():
     with pyRLC.RLCfile(RADAR_FILE) as f:
         (filesig, rlctype, sparebytes) = f.read_header()
@@ -44,7 +45,6 @@ def test_read_sweep_header():
         assert sweep_header['time_of_sweep_pc'] == 1973129824 
         assert sweep_header['time_of_sweep_vp'] == 18313917820654764054 
         assert sweep_header['uspare'] == 0
-
 
 def test_read_scan_header():
     with pyRLC.RLCfile(RADAR_FILE) as f:
@@ -166,51 +166,49 @@ def test_interp_scandata():
     # The assertion here is for the Scipy version, in MATLAB the value is 27088914
     assert interp_scandata.sum() == 27092281
 
+
 def test_reprojection():
     with pyRLC.RLCfile(RADAR_FILE) as f:
         # Read header and save required info
         f.file.seek(8)
         (f.scandata, f.Nscan, f.scan_i) = f.read_record_data_type4()
 
-    f.interp_scandata = f.interp_scandata()
-    rdrimg = f.project_to_circular_image()
+    f.interpolated_scandata = f.interp_scandata()
+    radar_image = f.project_to_circular_image()
 
     # MATLAB value 10583729
     # Python value 10583770
-    assert rdrimg.sum() == 10583770
+    assert radar_image.sum() == 10583770
+
 
 def test_reprojection_matlab():
     """Test reproject with MATLAB interpolated values"""
     with pyRLC.RLCfile(RADAR_FILE) as f:
         # Read header and save required info
         f.file.seek(8)
-        (f.scandata, f.Nscan, f.scan_i) = f.read_record_data_type4()
-
-    f.interp_scandata = f.interp_scandata()
+        f.scandata, f.Nscan, f.scan_i = f.read_record_data_type4()
 
     # Read scan data array from MATLAB for test
     matlab_scandata = loadmat(MATLAB_FILE)['scandata']
-    f.interp_scandata = matlab_scandata
-    rdrimg = f.project_to_circular_image()
+    f.interpolated_scandata = matlab_scandata
+    radar_image = f.project_to_circular_image()
 
     # MATLAB value 10583729
     # Python value 10583770
-    assert rdrimg.sum() == 10583729
+    assert radar_image.sum() == 10583729
 
 
 def test_radar_image():
     with pyRLC.RLCfile(RADAR_FILE) as f:
         # Read header and save required info
         f.file.seek(8)
-        (f.scandata, f.Nscan, f.scan_i) = f.read_record_data_type4()
+        f.scandata, f.Nscan, f.scan_i = f.read_record_data_type4()
 
-    f.interp_scandata = f.interp_scandata()
-
-    # Read scan data array from MATLAB for test
+    # Read scan data array from MATLAB for test to create same image
     matlab_scandata = loadmat(MATLAB_FILE)['scandata']
-    f.interp_scandata = matlab_scandata
-    f.rdrimg = f.project_to_circular_image()
-    print(f.rdrimg.sum())
+    f.interpolated_scandata = matlab_scandata
+    f.radar_image = f.project_to_circular_image()
+    print(f.radar_image.sum())
 
     # Save image
     if os.path.exists(TEST_IMAGE):
