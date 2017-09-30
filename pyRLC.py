@@ -51,7 +51,6 @@ class RLCfile:
         if self.file:
             self.file.close()
 
-
     def read_header(self):
         """Read and return header data"""
         filesig = np.frombuffer(self.file.read(4), np.uint8)
@@ -116,15 +115,15 @@ class RLCfile:
 
     def read_sweep_header(self):
         """Read and return individual sweep header, save Nscanx and Nsamp"""
-        sweep_header = {}
-        sweep_header['sample_rate'] = read_uint32(self.file)
-        sweep_header['samples_per_scanline'] = read_uint32(self.file)
-        sweep_header['scanlines_per_sweep'] = read_uint32(self.file)
-        sweep_header['scanlines_per_sweep_ext'] = read_uint32(self.file)
-        sweep_header['time_of_sweep_pc'] = read_uint32(self.file)
-        sweep_header['time_of_sweep_vp'] = read_uint64(self.file)
-        sweep_header['uspare'] = read_uint32(self.file)
-
+        sweep_header = {
+            'sample_rate': read_uint32(self.file),
+            'samples_per_scanline': read_uint32(self.file),
+            'scanlines_per_sweep': read_uint32(self.file),
+            'scanlines_per_sweep_ext': read_uint32(self.file),
+            'time_of_sweep_pc': read_uint32(self.file),
+            'time_of_sweep_vp': read_uint64(self.file),
+            'uspare': read_uint32(self.file),
+        }
         return sweep_header
 
     def read_scan_header(self):
@@ -170,19 +169,6 @@ class RLCfile:
             time = np.nan
 
         return {'number': number, 'time': time}
-# Use?
-#    def read_scanline(self, f):
-#        """Read scanline"""
-#        if self.scanhead['compressed'] == 0:
-#            self.scandata[scan, :] = to_int(f.read(Nsamp))
-# not used
-#            self.scanlines[scan] = 1
-#        else:
-#            fpos0 = f.tell()
-#            self.scandata[scan, :] = self.decompress_scanline()
-# not used
-#            self.scanlines[scan] = 1
-#            fpos1 = f.tell()
 
     def read_compressed_scanline(self):
         """Decompress run-length compressed scanline"""
@@ -236,7 +222,6 @@ class RLCfile:
         # range and azimuth coordinates
         coord_range = np.sqrt(rx*rx + ry*ry)
         # relative to radar, which is 0 because radar is aligned to North
-        #### - atan is slightly different :/
         az = np.arctan2(ry, rx) + rotdeg*np.pi/180
         az = az + 2*np.pi*(az <= 0)
 
@@ -256,19 +241,15 @@ class RLCfile:
                 if sa < self.Nsamp:
                     rdrimg[y, x] = self.interp_scandata[sc, sa]
 
-
         return rdrimg
 
     def write_png(self, output_file):
         """Write projected scandata to png"""
-        # Cast to uint8 to match MATLAB
-#        rdrimg = self.rdrimg.astype('u1')
-#        rdrimg[rdrimg == 255] = 0
-        rdrimg = self.rdrimg
-        imsave(output_file, rdrimg, cmap='gray')
+        imsave(output_file, self.rdrimg, cmap='gray')
 
     def do_this(self):
         """Reads .rec file and saves .png representation"""
+
 
 def main():
     """Parse cli and iterate over input .rec files"""
