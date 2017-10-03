@@ -36,7 +36,7 @@ class PyTest(TestCommand):
 setup(
     name='pyRLC',
     version=pyRLC.__version__,
-    url='http://github.com/axiom/pyRLC/',
+    url='http://github.com/axiom-data-science/pyRLC',
     author='Jesse Lopez',
     tests_require=['pytest'],
     install_requires=[

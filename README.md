@@ -8,7 +8,7 @@ Read and convert .rcl HF Radar files to .png images.
 #### From source
 
 ```bash
-git clone https://github.com/axiomdatascience/pyRLC
+git clone https://github.com/axiom-data-science/pyRLC
 cd pyRLC
 python setup.py install
 ```
