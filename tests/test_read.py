@@ -12,11 +12,16 @@ test_dir = os.path.dirname(os.path.realpath(__file__))
 base_dir = os.path.dirname(test_dir)
 DATA_DIR = os.path.join(base_dir, 'data')
 
+# Data files
 RADAR_FILE = os.path.join(base_dir, 'data/test.rec')
 MATLAB_FILE = os.path.join(base_dir, 'data/interp_scandata.mat')
 
+# Non-overlay reference and output images
 REF_IMAGE = os.path.join(base_dir, 'data/reference_image.png')
+PYTHON_REF_IMAGE = os.path.join(base_dir, 'data/py_reference_image.png')
+# - changing output file name
 TEST_IMAGE = os.path.join(base_dir, 'data/test_image.png')
+# - using default output file name
 DEFAULT_TEST_IMAGE = os.path.join(base_dir, 'data/test.png')
 
 OVERLAY_IMAGE = os.path.join(base_dir, 'data/overlays/SIR_coastoverlay_06mi_headNorth_SLIEscale_072017.png')
@@ -59,6 +64,7 @@ def test_read_sweep_header():
         assert sweep_header['time_of_sweep_pc'] == 1973129824 
         assert sweep_header['time_of_sweep_vp'] == 18313917820654764054 
         assert sweep_header['uspare'] == 0
+
 
 def test_read_scan_header():
     with pyRLC.RLCfile(RADAR_FILE) as f:
@@ -276,8 +282,19 @@ def test_overlay_image():
     assert np.array_equal(ref_image, test_image)
 
 
+def test_rec_to_png():
+    """Test method that does all steps from rec to png"""
+    with pyRLC.RLCfile(RADAR_FILE) as f:
+        f.rec_to_png(TEST_IMAGE)
+
+    # Compare image with Python image
+    ref_image = imread(PYTHON_REF_IMAGE)
+    test_image = imread(DEFAULT_TEST_IMAGE)
+    assert np.array_equal(ref_image, test_image)
+
+
 def test_parser():
-    sys.argv = ['/path/to/this','/path/to/input.rec', '/path/to/output', '/path/to/overlay.png']
+    sys.argv = ['/path/to/this', '/path/to/input.rec', '/path/to/output', '/path/to/overlay.png']
     args = pyRLC.parse_args(sys.argv[1:])
 
     assert args.in_file == '/path/to/input.rec'
