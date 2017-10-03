@@ -1,18 +1,31 @@
 # Numbers for assert values derived from MATLAB implementation
 import os
+import sys
 import numpy as np
 
 from scipy.io import loadmat
 from scipy.misc import imread
 
-import pyRLC
+from pyRLC import pyRLC
 
-RADAR_FILE = 'data/test.rec'
-MATLAB_FILE = 'data/interp_scandata.mat'
-TEST_IMAGE = 'data/test_image.png'
-REF_IMAGE = 'data/reference_image.png'
-OVERLAY_IMAGE = 'data/overlays/SIR_coastoverlay_06mi_headNorth_SLIEscale_072017.png'
-OVERLAY_TEST_IMAGE = 'data/overlay_test_image.png'
+test_dir = os.path.dirname(os.path.realpath(__file__))
+base_dir = os.path.dirname(test_dir)
+DATA_DIR = os.path.join(base_dir, 'data')
+
+RADAR_FILE = os.path.join(base_dir, 'data/test.rec')
+MATLAB_FILE = os.path.join(base_dir, 'data/interp_scandata.mat')
+
+REF_IMAGE = os.path.join(base_dir, 'data/reference_image.png')
+TEST_IMAGE = os.path.join(base_dir, 'data/test_image.png')
+DEFAULT_TEST_IMAGE = os.path.join(base_dir, 'data/test.png')
+
+OVERLAY_IMAGE = os.path.join(base_dir, 'data/overlays/SIR_coastoverlay_06mi_headNorth_SLIEscale_072017.png')
+# Using MATLAB interpolated data
+REFERENCE_OVERLAY = os.path.join(base_dir, 'data/reference_overlay.png')
+# Using Python interpolated data
+PYTHON_REFERENCE_OVERLAY = os.path.join(base_dir, 'data/py_reference_overlay.png')
+OVERLAY_TEST_IMAGE = os.path.join(base_dir, 'data/overlay_test_image.png')
+
 
 def test_read_header():
     with pyRLC.RLCfile(RADAR_FILE) as f:
@@ -200,6 +213,7 @@ def test_reprojection_matlab():
 
 
 def test_radar_image():
+    """Compares overlay image from MATLAB interpolated scandata against reference version"""
     with pyRLC.RLCfile(RADAR_FILE) as f:
         # Read header and save required info
         f.file.seek(8)
@@ -219,7 +233,29 @@ def test_radar_image():
     assert np.array_equal(ref_image, test_image)
 
 
+def test_default_radar_image():
+    """Compares overlay image from MATLAB interpolated scandata against reference version"""
+    with pyRLC.RLCfile(RADAR_FILE) as f:
+        # Read header and save required info
+        f.file.seek(8)
+        f.scandata, f.Nscan, f.scan_i = f.read_record_data_type4()
+
+    # Read scan data array from MATLAB for test to create same image
+    matlab_scandata = loadmat(MATLAB_FILE)['scandata']
+    f.interpolated_scandata = matlab_scandata
+    f.radar_image = f.project_to_circular_image()
+
+    # Save image - default path
+    f.write_png()
+
+    # Compare image with reference
+    ref_image = imread(REF_IMAGE)
+    test_image = imread(DEFAULT_TEST_IMAGE)
+    assert np.array_equal(ref_image, test_image)
+
+
 def test_overlay_image():
+    """Compares overlay image from MATLAB interpolated scandata against reference version"""
     with pyRLC.RLCfile(RADAR_FILE) as f:
         # Read header and save required info
         f.file.seek(8)
@@ -235,6 +271,25 @@ def test_overlay_image():
     overlay.add_overlay()
 
     # Compare overlay image with reference
-    ref_image = imread(OVERLAY_TEST_IMAGE)
+    ref_image = imread(REFERENCE_OVERLAY)
     test_image = imread(OVERLAY_TEST_IMAGE)
+    assert np.array_equal(ref_image, test_image)
+
+
+def test_parser():
+    sys.argv = ['/path/to/this','/path/to/input.rec', '/path/to/output', '/path/to/overlay.png']
+    args = pyRLC.parse_args(sys.argv[1:])
+
+    assert args.in_file == '/path/to/input.rec'
+    assert args.out_dir == '/path/to/output'
+    assert args.overlay == '/path/to/overlay.png'
+
+
+def test_main():
+    sys.argv = ['this', RADAR_FILE, DATA_DIR, OVERLAY_IMAGE]
+    pyRLC.main()
+
+    # Compare image with reference
+    ref_image = imread(PYTHON_REFERENCE_OVERLAY)
+    test_image = imread(DEFAULT_TEST_IMAGE)
     assert np.array_equal(ref_image, test_image)

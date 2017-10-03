@@ -8,8 +8,10 @@ rlc File format (type 4):
     - Header - 7 bytes
     - Scan data - dependent on file
 """
+import argparse
 import os
 import logging
+import sys
 
 import numpy as np
 from matplotlib.image import imsave
@@ -28,6 +30,8 @@ class RLCfile:
         self.file_size = os.path.getsize(self.file_path)
         # file handle
         self.file = None
+        # output file name
+        self.output_file = None
 
         # Scan information read from header
         # rlc type
@@ -254,8 +258,10 @@ class RLCfile:
         """Write projected scandata to png"""
         if not output_file:
             # save to same dir as .rec file, just change to .png
-            output_file = os.path.join(os.path.splitext(self.file)[0], '.png')
-        imsave(output_file, self.radar_image, cmap='gray', vmin=0, vmax=255)
+            self.output_file = os.path.splitext(self.file_path)[0] + '.png'
+        else:
+            self.output_file = output_file
+        imsave(self.output_file, self.radar_image, cmap='gray', vmin=0, vmax=255)
 
     def rec_to_png(self, output_file=None):
         """Reads .rec file and saves .png representation"""
@@ -296,20 +302,21 @@ class RadarOverlay:
             self.logger.info('saved output combined image: {}'.format(self.output_path))
 
 
-def main():
-    """Parse cli and iterate over input .rec files"""
-    import os
-    import argparse
-
+def parse_args(args):
     parser = argparse.ArgumentParser(description='Convert .rec file(s) to .png')
     parser.add_argument('in_file', help='comma seperated .rec files (e.g. f1.rec,f2.rec)')
     parser.add_argument('out_dir', help='output directory')
     parser.add_argument('overlay', help='overlay image')
-    args = parser.parse_args()
 
+    return parser.parse_args()
+
+
+def main():
+    """Parse cli and iterate over input .rec files"""
+    args = parse_args(sys.argv[1:])
     in_files = args.in_file.split(',')
     out_dir = args.out_dir
-    overlay = args.overla
+    overlay = args.overlay
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
