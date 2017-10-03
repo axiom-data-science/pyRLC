@@ -11,7 +11,8 @@ RADAR_FILE = 'data/test.rec'
 MATLAB_FILE = 'data/interp_scandata.mat'
 TEST_IMAGE = 'data/test_image.png'
 REF_IMAGE = 'data/reference_image.png'
-
+OVERLAY_IMAGE = 'data/overlays/SIR_coastoverlay_06mi_headNorth_SLIEscale_072017.png'
+OVERLAY_TEST_IMAGE = 'data/overlay_test_image.png'
 
 def test_read_header():
     with pyRLC.RLCfile(RADAR_FILE) as f:
@@ -215,4 +216,25 @@ def test_radar_image():
     # Compare image with reference
     ref_image = imread(REF_IMAGE)
     test_image = imread(TEST_IMAGE)
+    assert np.array_equal(ref_image, test_image)
+
+
+def test_overlay_image():
+    with pyRLC.RLCfile(RADAR_FILE) as f:
+        # Read header and save required info
+        f.file.seek(8)
+        f.scandata, f.Nscan, f.scan_i = f.read_record_data_type4()
+
+    # Read scan data array from MATLAB for test to create same image
+    matlab_scandata = loadmat(MATLAB_FILE)['scandata']
+    f.interpolated_scandata = matlab_scandata
+    f.radar_image = f.project_to_circular_image()
+
+    # Create overlay image
+    overlay = pyRLC.RadarOverlay(TEST_IMAGE, OVERLAY_IMAGE, OVERLAY_TEST_IMAGE)
+    overlay.add_overlay()
+
+    # Compare overlay image with reference
+    ref_image = imread(OVERLAY_TEST_IMAGE)
+    test_image = imread(OVERLAY_TEST_IMAGE)
     assert np.array_equal(ref_image, test_image)

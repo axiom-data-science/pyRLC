@@ -304,10 +304,12 @@ def main():
     parser = argparse.ArgumentParser(description='Convert .rec file(s) to .png')
     parser.add_argument('in_file', help='comma seperated .rec files (e.g. f1.rec,f2.rec)')
     parser.add_argument('out_dir', help='output directory')
+    parser.add_argument('overlay', help='overlay image')
     args = parser.parse_args()
 
     in_files = args.in_file.split(',')
     out_dir = args.out_dir
+    overlay = args.overla
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -318,7 +320,7 @@ def main():
             rlc_file.rec_to_png()
 
             # Add overlay to .png
-            overlay = RadarOverlay(rlc_file.output_file, args.overlay, rlc_file.output_file)
+            overlay = RadarOverlay(rlc_file.output_file, overlay, rlc_file.output_file)
             overlay.add_overlay()
 
 
