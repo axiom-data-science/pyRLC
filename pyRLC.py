@@ -11,9 +11,11 @@ rlc File format (type 4):
 import os
 import logging
 
-from matplotlib.image import imsave
 import numpy as np
+from matplotlib.image import imsave
 from scipy.interpolate import interp1d
+
+from PIL import Image
 
 
 class RLCfile:
@@ -273,6 +275,26 @@ class RLCfile:
         # Save image
         self.write_png(output_file)
 
+
+class RadarOverlay:
+    """Methods to add and manipulate overlays on radar images"""
+
+    def __init__(self, radar_path, overlay_path, output_path):
+        self.logger = logging.getLogger()
+
+        self.radar_path = radar_path
+        self.overlay_path = overlay_path
+        self.output_path = output_path
+
+    def add_overlay(self):
+        """Adds overlay """
+        with Image.open(self.radar_path) as src, Image.open(self.overlay_path) as overlay:
+            self.logger.info('overlaying {} on {}'.format(self.overlay_path, self.radar_path))
+            src.paste(overlay, (0, 0), overlay)
+            src.save(self.output_path)
+            self.logger.info('saved output combined image: {}'.format(self.output_path))
+
+
 def main():
     """Parse cli and iterate over input .rec files"""
     import os
@@ -291,7 +313,12 @@ def main():
 
     for f in in_files:
         with RLCfile(f) as rlc_file:
+            # Convert .rec file to .png
             rlc_file.rec_to_png()
+
+            # Add overlay to .png
+            overlay = RadarOverlay(rlc_file.output_file, args.overlay, rlc_file.output_file)
+            overlay.add_overlay()
 
 
 def read_uint8(f):
