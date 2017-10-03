@@ -208,11 +208,8 @@ def test_radar_image():
     matlab_scandata = loadmat(MATLAB_FILE)['scandata']
     f.interpolated_scandata = matlab_scandata
     f.radar_image = f.project_to_circular_image()
-    print(f.radar_image.sum())
 
     # Save image
-    if os.path.exists(TEST_IMAGE):
-        os.remove(TEST_IMAGE)
     f.write_png(TEST_IMAGE)
 
     # Compare image with reference

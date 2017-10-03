@@ -231,18 +231,19 @@ class RLCfile:
         az = np.arctan2(ry, rx) + rotdeg*np.pi/180
         az = az + 2*np.pi*(az <= 0)
 
-        samp = np.round(coord_range) + 1
+        # Add 1 here to compare with MATLAB version
+        samp = (np.round(coord_range) + 1).astype(int)
         # Nscan, not NscanX
         scan = np.round(self.NscanX*az/(2.0*np.pi))
-        scan = scan + self.NscanX*(scan <= 0)
+        scan = (scan + self.NscanX*(scan <= 0)).astype(int)
 
         for x in range(imgsz):
             for y in range(imgsz):
                 # scan and sample coords
                 # - for given x, y pixel
                 # - change to 0-based index
-                sa = int(samp[y, x]) - 1
-                sc = int(scan[y, x]) - 1
+                sa = samp[y, x] - 1
+                sc = scan[y, x] - 1
 
                 if sa < self.Nsamp:
                     radar_image[y, x] = self.interpolated_scandata[sc, sa]
@@ -254,7 +255,7 @@ class RLCfile:
         if not output_file:
             # save to same dir as .rec file, just change to .png
             output_file = os.path.join(os.path.splitext(self.file)[0], '.png')
-        imsave(output_file, self.radar_image, cmap='gray')
+        imsave(output_file, self.radar_image, cmap='gray', vmin=0, vmax=255)
 
     def rec_to_png(self, output_file=None):
         """Reads .rec file and saves .png representation"""
