@@ -63,5 +63,6 @@ setup(
         ],
     extras_require={
         'testing': ['pytest'],
-    }
+    },
+    scripts=['scripts/rec_to_png']
 )

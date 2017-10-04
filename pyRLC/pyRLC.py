@@ -306,7 +306,7 @@ def parse_args(args):
     parser = argparse.ArgumentParser(description='Convert .rec file(s) to .png')
     parser.add_argument('in_file', help='comma seperated .rec files (e.g. f1.rec,f2.rec)')
     parser.add_argument('out_dir', help='output directory')
-    parser.add_argument('overlay', help='overlay image')
+    parser.add_argument('-o', '--overlay', help='overlay image')
 
     return parser.parse_args()
 
@@ -324,11 +324,15 @@ def main():
     for f in in_files:
         with RLCfile(f) as rlc_file:
             # Convert .rec file to .png
-            rlc_file.rec_to_png()
+            filename = os.path.split(f)[-1]
+            out_file = os.path.splitext(filename)[0] + '.png'
+            output_file = os.path.join(out_dir, out_file)
+            rlc_file.rec_to_png(output_file)
 
-            # Add overlay to .png
-            overlay = RadarOverlay(rlc_file.output_file, overlay, rlc_file.output_file)
-            overlay.add_overlay()
+            if overlay:
+                # Add overlay to .png
+                overlay = RadarOverlay(rlc_file.output_file, overlay, rlc_file.output_file)
+                overlay.add_overlay()
 
 
 def read_uint8(f):

@@ -294,7 +294,7 @@ def test_rec_to_png():
 
 
 def test_parser():
-    sys.argv = ['/path/to/this', '/path/to/input.rec', '/path/to/output', '/path/to/overlay.png']
+    sys.argv = ['/path/to/this', '/path/to/input.rec', '/path/to/output', '-o', '/path/to/overlay.png']
     args = pyRLC.parse_args(sys.argv[1:])
 
     assert args.in_file == '/path/to/input.rec'
@@ -303,7 +303,7 @@ def test_parser():
 
 
 def test_main():
-    sys.argv = ['this', RADAR_FILE, DATA_DIR, OVERLAY_IMAGE]
+    sys.argv = ['this', RADAR_FILE, DATA_DIR, '-o', OVERLAY_IMAGE]
     pyRLC.main()
 
     # Compare image with reference

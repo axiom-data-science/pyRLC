@@ -1,0 +1,9 @@
+#!python
+"""
+Convert an HF Radar RLC file to a PNG image.
+"""
+
+from pyRLC import pyRLC
+
+if __name__ == '__main__':
+    pyRLC.main()
