@@ -42,9 +42,9 @@ radar.add_overlay()
 
 Using command line script to convert single .rec to .png:
 
-```rec_to_png radar.png output/```
+```rec_to_png radar.rec output/```
 
 Using command line script to convert single .rec to .png with overlay:
 
-```rec_to_png radar.png output/ -o overlay.png```
+```rec_to_png radar.rec output/ -o overlay.png```
 
